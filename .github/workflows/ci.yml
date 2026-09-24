@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # prisma.config.ts (Prisma 7) evaluates env('DATABASE_URL') when the CLI
+  # loads it, and that helper THROWS on a missing variable rather than
+  # returning undefined — so `prisma generate` fails without this even though
+  # generation never opens a connection. Any well-formed URL will do; this is
+  # deliberately not a real database.
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+jobs:
+  # ── Job 1: Typecheck ───────────────────────────────────────────────────────
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Prisma 7 removed @prisma/client's postinstall hook (v5 had
+      # hasInstallScript: true and generated the client during `npm ci`).
+      # Without an explicit generate there is no client at all, and every
+      # `@prisma/client` import fails to resolve.
+      - run: npx prisma generate
+      - run: npm run typecheck
+
+  # ── Job 2: Lint ────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run lint:check
+
+  # ── Job 3: Format ──────────────────────────────────────────────────────────
+  # Prettier only reads files, so this job needs no generated client.
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+
+  # ── Job 4: Build ───────────────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [typecheck, lint, format]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build
+
+  # ── Job 5: E2E ─────────────────────────────────────────────────────────────
+  # Unlike the jobs above, this one talks to a real database — it needs a
+  # postgres service container and a DATABASE_URL pointing at it, overriding
+  # the placeholder set at the top of this file.
+  # e2e:
+  #   name: E2E
+  #   runs-on: ubuntu-latest
+  #   needs: [build]
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 22
+  #         cache: npm
+  #     - run: npm ci
+  #     - run: npx prisma generate
+  #     - run: npm run test:e2e

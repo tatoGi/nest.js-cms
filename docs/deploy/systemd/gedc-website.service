@@ -1,0 +1,35 @@
+[Unit]
+Description=Enterprise Georgia Website (Next.js — port 3000)
+After=network.target gedc-backend.service
+
+[Service]
+Type=simple
+User=gedc
+Group=gedc
+WorkingDirectory=/opt/gedc/website
+
+# next start — reads .next/ built by npm run build
+ExecStart=/usr/bin/npm run start
+ExecReload=/bin/kill -HUP $MAINPID
+
+Restart=always
+RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+# Next.js stdout/stderr → /var/log/gedc/website.log
+StandardOutput=append:/var/log/gedc/website.log
+StandardError=append:/var/log/gedc/website.log
+SyslogIdentifier=gedc-website
+
+# Load production env (copy from docs/deploy/.env.website.example)
+EnvironmentFile=/opt/gedc/website/.env
+Environment=NODE_ENV=production
+Environment=PORT=3000
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

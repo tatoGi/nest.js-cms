@@ -1,0 +1,30 @@
+// Seed/maintenance scripts compile under their own config rather than
+// inheriting the application's. They run through ts-node from npm scripts
+// (and from seed.ts, which shells out to the individual seeders), so if the
+// app's root tsconfig ever moves to ESM/NodeNext — as NestJS projects
+// periodically do — every seeder would break at once with a module-resolution
+// error that has nothing to do with the seed itself. Pinning CommonJS here
+// keeps that blast radius at zero.
+//
+// `include` must be restated: `extends` inherits it from the root config,
+// which points at src/**/*, so without this line `tsc -p` here silently
+// compiles the application instead of the seeds and reports success while
+// checking none of them.
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    // moduleResolution is deliberately not set: `module: CommonJS` already
+    // implies node10 resolution, so stating it explicitly changed nothing
+    // except adding a deprecation warning in TypeScript 6+. Migrating to
+    // node16 is not currently possible — it resolves types through package
+    // `exports` maps, which several NestJS-era dependencies here don't
+    // provide (2135 errors on the app, and @types/node itself unresolvable).
+    "module": "CommonJS",
+    "types": ["node"],
+    "noEmit": true,
+    // The root config pins rootDir to ./src; these files live outside it, so
+    // without this override every seeder reports TS6059.
+    "rootDir": "."
+  },
+  "include": ["./**/*.ts"]
+}

@@ -1,0 +1,1144 @@
+// ==========================================
+// COMPLETE CMS DATABASE SCHEMA WITH POST CATEGORIES
+// Georgian Government Business Support Site
+// Multilingual (Dynamic Languages) + User-Friendly CMS
+// ==========================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==========================================
+// LANGUAGES
+// ==========================================
+
+enum TextDirection {
+  ltr
+  rtl
+}
+
+enum PostType {
+  news
+  success
+  course
+}
+
+model Language {
+  id           Int           @id @default(autoincrement())
+  code         String        @unique @db.VarChar(8)
+  name         String        @db.VarChar(100)
+  englishName  String?       @map("english_name") @db.VarChar(100)
+  georgianName String?       @map("georgian_name") @db.VarChar(100)
+  flagEmoji    String?       @map("flag_emoji") @db.VarChar(10)
+  direction    TextDirection @default(ltr)
+  isActive     Boolean       @default(true) @map("is_active")
+  isDefault    Boolean       @default(false) @map("is_default")
+  sortOrder    Int           @default(0) @map("sort_order")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  // Relations - All complete ✅
+  pageTranslations           PageTranslation[]
+  pageSlugAliases            PageSlugAlias[]
+  pageVersions               PageVersion[]
+  postVersions               PostVersion[]
+  postTranslations           PostTranslation[]
+  postSlugAliases            PostSlugAlias[]
+  pageTemplates              PageTemplateTranslation[]
+  menuItemTranslation        MenuItemTranslation[]
+  postCategoryTranslations   PostCategoryTranslation[] // ← NEW
+  settingLocalizedContent    SettingLocalizedContent[]
+  cannedResponseTranslations CannedResponseTranslation[]
+
+  @@index([code])
+  @@index([isActive])
+  @@index([isDefault])
+  @@map("languages")
+}
+
+// ==========================================
+// ADMIN & AUTHENTICATION
+// ==========================================
+
+model User {
+  id            Int       @id @default(autoincrement())
+  firstName     String    @map("first_name") @db.VarChar(255)
+  lastName      String    @map("last_name") @db.VarChar(255)
+  displayName   String    @map("display_name") @db.VarChar(255)
+  email         String    @unique @db.VarChar(255)
+  password      String    @db.VarChar(255)
+  avatarMediaId Int?      @map("avatar_media_id")
+  isActive      Boolean   @default(true) @map("is_active")
+  lastLogin     DateTime? @map("last_login") @db.Timestamp(0)
+  lastSeen      DateTime? @map("last_seen") @db.Timestamp(0)
+  refreshToken  String?   @map("refresh_token") @db.Text
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamp(0)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  // Password reset — SHA-256 hash of a random opaque token, not the raw
+  // token itself (see docs/reset-password/backend-design.md). Cleared on
+  // use or expiry check, so a stale hash alone doesn't grant access.
+  passwordResetTokenHash String?   @map("password_reset_token_hash") @db.VarChar(64)
+  passwordResetExpiresAt DateTime? @map("password_reset_expires_at") @db.Timestamp(0)
+
+  roles                  UserRole[]
+  userPermissions        UserPermission[]
+  auditLogs              AuditLog[]             @relation("AuditLogActor")
+  createdPages           Page[]                 @relation("PageCreatedBy")
+  updatedPages           Page[]                 @relation("PageUpdatedBy")
+  posts                  Post[]                 @relation("PostAuthor")
+  // mediaUploads     Media[]            @relation("MediaUploadedBy")
+  createdTemplates       PageTemplate[]         @relation("TemplateCreatedBy")
+  updatedTemplates       PageTemplate[]         @relation("TemplateUpdatedBy")
+  triggeredNotifications Notification[]         @relation("NotificationActor")
+  notificationState      UserNotificationState?
+  avatarMedia            Media?                 @relation("UserAvatar", fields: [avatarMediaId], references: [id], onDelete: SetNull)
+  chatSessions           ChatSession[]          @relation("ChatOperator")
+  chatSessionsAsKnown    ChatSession[]          @relation("ChatKnownUser")
+  chatSessionsClosed     ChatSession[]          @relation("ChatClosedBy")
+  chatMessages           ChatMessage[]          @relation("ChatMessageAuthor")
+  dmThreadsAsP1          OperatorThread[]       @relation("DmParticipant1")
+  dmThreadsAsP2          OperatorThread[]       @relation("DmParticipant2")
+  dmMessages             OperatorMessage[]      @relation("DmAuthor")
+  cannedResponses        CannedResponse[]       @relation("CannedResponseAuthor")
+
+  @@index([email])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(255)
+  slug        String   @unique @db.VarChar(255)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  users       UserRole[]
+  permissions RolePermission[]
+  manages     RoleManagement[] @relation("RoleManagementManager")
+  managedBy   RoleManagement[] @relation("RoleManagementManaged")
+
+  @@index([slug])
+  @@map("roles")
+}
+
+// Data-driven "who can CRUD whose accounts" policy — e.g. (chat-supervisor
+// -> operator). One generic ManagedUsersController resolves scope from this
+// table instead of a bespoke controller per manager/subordinate role pair.
+model RoleManagement {
+  id              Int    @id @default(autoincrement())
+  managerRoleSlug String @map("manager_role_slug") @db.VarChar(255)
+  managedRoleSlug String @map("managed_role_slug") @db.VarChar(255)
+
+  managerRole Role @relation("RoleManagementManager", fields: [managerRoleSlug], references: [slug], onDelete: Cascade)
+  managedRole Role @relation("RoleManagementManaged", fields: [managedRoleSlug], references: [slug], onDelete: Cascade)
+
+  @@unique([managerRoleSlug, managedRoleSlug])
+  @@map("role_management")
+}
+
+model UserRole {
+  userId Int @map("user_id")
+  roleId Int @map("role_id")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model Permission {
+  id    Int    @id @default(autoincrement())
+  key   String @unique @db.VarChar(100)
+  label String @db.VarChar(255)
+  group String @default("general") @db.VarChar(50)
+
+  roles           RolePermission[]
+  userPermissions UserPermission[]
+
+  @@index([group])
+  @@map("permissions")
+}
+
+model UserPermission {
+  userId       Int     @map("user_id")
+  permissionId Int     @map("permission_id")
+  granted      Boolean @default(true)
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, permissionId])
+  @@index([permissionId])
+  @@map("user_permissions")
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  actorId    Int?     @map("actor_id")
+  action     String   @db.VarChar(100)
+  targetType String   @db.VarChar(50)
+  targetId   Int?     @map("target_id")
+  before     Json?
+  after      Json?
+  ip         String?  @db.VarChar(45)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  actor User? @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([action])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model RolePermission {
+  roleId       Int @map("role_id")
+  permissionId Int @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ==========================================
+// PAGE TEMPLATES
+// ==========================================
+
+model PageTemplate {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique @db.VarChar(100)
+  postType    PostType? @map("post_type")
+  createdById Int?      @map("created_by_id")
+  updatedById Int?      @map("updated_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  createdBy    User?                     @relation("TemplateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?                     @relation("TemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  translations PageTemplateTranslation[]
+  pages        Page[]
+
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("page_templates")
+}
+
+model PageTemplateTranslation {
+  id         Int    @id @default(autoincrement())
+  templateId Int    @map("template_id")
+  languageId Int    @map("language_id")
+  name       String @db.VarChar(255)
+
+  template PageTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  language Language     @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, languageId])
+  @@index([languageId])
+  @@map("page_template_translations")
+}
+
+// ==========================================
+// PAGES
+// ==========================================
+
+model Page {
+  id             Int       @id @default(autoincrement())
+  parentId       Int?      @map("parent_id")
+  templateId     Int       @map("template_id")
+  sortOrder      Int       @default(0) @map("sort_order")
+  published      Boolean   @default(false)
+  showInMenu     Boolean   @default(false) @map("show_in_menu")
+  isHome         Boolean   @default(false) @map("is_home")
+  featureImageId Int?      @map("feature_image_id")
+  createdById    Int?      @map("created_by_id")
+  updatedById    Int?      @map("updated_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamp(0)
+  deletedAt      DateTime? @map("deleted_at")
+
+  featureImage Media?            @relation("PageFeatureImage", fields: [featureImageId], references: [id], onDelete: SetNull)
+  parent       Page?             @relation("PageHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  template     PageTemplate      @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  children     Page[]            @relation("PageHierarchy")
+  translations PageTranslation[]
+  slugAliases  PageSlugAlias[]
+  versions     PageVersion[]
+  createdBy    User?             @relation("PageCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?             @relation("PageUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  posts        Post[]            @relation("PostPages")
+
+  @@index([parentId])
+  @@index([templateId])
+  @@index([published])
+  @@index([showInMenu])
+  @@index([isHome])
+  @@index([featureImageId])
+  @@map("pages")
+}
+
+model PageTranslation {
+  id              Int       @id @default(autoincrement())
+  pageId          Int       @map("page_id")
+  languageId      Int       @map("language_id")
+  title           String    @db.VarChar(255)
+  slug            String    @unique @db.VarChar(255)
+  subtitle        String?   @db.VarChar(255)
+  excerpt         String?   @db.Text
+  content         String?   @db.Text
+  description     String?   @db.Text
+  metaTitle       String?   @map("meta_title") @db.VarChar(255)
+  metaDescription String?   @map("meta_description") @db.Text
+  keywords        String?   @db.Text
+  focusKeyword    String?   @map("focus_keyword") @db.VarChar(255)
+  canonicalUrl    String?   @map("canonical_url") @db.VarChar(500)
+  publishedAt     DateTime? @map("published_at") @db.Timestamp(0)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamp(0)
+  deletedAt       DateTime? @map("deleted_at")
+
+  page     Page               @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  language Language           @relation(fields: [languageId], references: [id])
+  blocks   PageContentBlock[]
+
+  @@unique([pageId, languageId], name: "pageId_languageId")
+  @@index([languageId])
+  @@index([slug])
+  @@map("page_translations")
+}
+
+model PageSlugAlias {
+  id         Int      @id @default(autoincrement())
+  pageId     Int      @map("page_id")
+  languageId Int      @map("language_id")
+  slug       String   @unique @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  page     Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id])
+
+  @@index([pageId])
+  @@index([languageId])
+  @@map("page_slug_aliases")
+}
+
+model PageContentBlock {
+  id            Int      @id @default(autoincrement())
+  translationId Int      @map("translation_id")
+  type          String   @db.VarChar(50)
+  data          Json
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  translation PageTranslation @relation(fields: [translationId], references: [id], onDelete: Cascade)
+
+  @@index([translationId])
+  @@index([type])
+  @@index([sortOrder])
+  @@map("page_content_blocks")
+}
+
+model PageVersion {
+  id         Int      @id @default(autoincrement())
+  pageId     Int      @map("page_id")
+  languageId Int      @map("language_id")
+  snapshot   Json
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  page     Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id])
+
+  @@index([pageId])
+  @@index([languageId])
+  @@map("page_versions")
+}
+
+// ==========================================
+// POSTS
+// ==========================================
+
+model Post {
+  id           Int       @id @default(autoincrement())
+  type         PostType  @default(news)
+  authorId     Int?      @map("author_id")
+  coverImageId Int?      @map("cover_image_id")
+  published    Boolean   @default(false)
+  isFeatured   Boolean   @default(false) @map("is_featured")
+  viewCount    Int       @default(0) @map("view_count")
+  publishedAt  DateTime? @map("published_at") @db.Timestamp(0)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamp(0)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamp(0)
+
+  coverImage   Media?             @relation("PostCoverImage", fields: [coverImageId], references: [id], onDelete: SetNull)
+  author       User?              @relation("PostAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  translations PostTranslation[]
+  slugAliases  PostSlugAlias[]
+  pages        Page[]             @relation("PostPages")
+  versions     PostVersion[]
+  categories   PostCategoryPost[]
+
+  @@index([type])
+  @@index([authorId])
+  @@index([published])
+  @@index([publishedAt])
+  @@index([isFeatured])
+  @@index([deletedAt])
+  @@index([coverImageId])
+  @@map("posts")
+}
+
+model PostTranslation {
+  id              Int      @id @default(autoincrement())
+  postId          Int      @map("post_id")
+  languageId      Int      @map("language_id")
+  title           String   @db.VarChar(255)
+  slug            String   @unique @db.VarChar(255)
+  excerpt         String?  @db.Text
+  content         String?  @db.Text
+  metaTitle       String?  @map("meta_title") @db.VarChar(255)
+  metaDescription String?  @map("meta_description") @db.Text
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  post     Post               @relation(fields: [postId], references: [id], onDelete: Cascade)
+  language Language           @relation(fields: [languageId], references: [id])
+  blocks   PostContentBlock[]
+
+  @@unique([postId, languageId], name: "postId_languageId")
+  @@index([languageId])
+  @@index([slug])
+  @@map("post_translations")
+}
+
+model PostSlugAlias {
+  id         Int      @id @default(autoincrement())
+  postId     Int      @map("post_id")
+  languageId Int      @map("language_id")
+  slug       String   @unique @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  post     Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id])
+
+  @@index([postId])
+  @@index([languageId])
+  @@map("post_slug_aliases")
+}
+
+model PostContentBlock {
+  id            Int      @id @default(autoincrement())
+  translationId Int      @map("translation_id")
+  type          String   @db.VarChar(50)
+  data          Json
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  translation PostTranslation @relation(fields: [translationId], references: [id], onDelete: Cascade)
+
+  @@index([translationId])
+  @@index([type])
+  @@index([sortOrder])
+  @@map("post_content_blocks")
+}
+
+model PostVersion {
+  id         Int      @id @default(autoincrement())
+  postId     Int      @map("post_id")
+  languageId Int      @map("language_id")
+  snapshot   Json
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  post     Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id])
+
+  @@index([postId])
+  @@index([languageId])
+  @@map("post_versions")
+}
+
+// ==========================================
+// POST CATEGORIES (NEW)
+// ==========================================
+
+model PostCategory {
+  id        Int      @id @default(autoincrement())
+  parentId  Int?     @map("parent_id")
+  slug      String   @unique @db.VarChar(100)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  parent       PostCategory?             @relation("PostCategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children     PostCategory[]            @relation("PostCategoryHierarchy")
+  translations PostCategoryTranslation[]
+  posts        PostCategoryPost[]
+
+  @@index([parentId])
+  @@index([slug])
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("post_categories")
+}
+
+model PostCategoryTranslation {
+  id          Int      @id @default(autoincrement())
+  categoryId  Int      @map("category_id")
+  languageId  Int      @map("language_id")
+  slug        String   @db.VarChar(100)
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  category PostCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  language Language     @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, languageId])
+  @@index([languageId])
+  @@map("post_category_translations")
+}
+
+model PostCategoryPost {
+  postId     Int      @map("post_id")
+  categoryId Int      @map("category_id")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  post     Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category PostCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([postId, categoryId])
+  @@index([categoryId])
+  @@map("post_category_posts")
+}
+
+// ==========================================
+// MENU
+// ==========================================
+
+model Menu {
+  id        Int       @id @default(autoincrement())
+  title     String    @db.VarChar(255)
+  slug      String    @unique @db.VarChar(255)
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  items MenuItem[]
+
+  @@map("menus")
+}
+
+model MenuItem {
+  id        Int     @id @default(autoincrement())
+  menuId    Int     @map("menu_id")
+  parentId  Int?    @map("parent_id")
+  isActive  Boolean @default(true) @map("is_active")
+  sortOrder Int     @default(0)
+
+  type        String  @default("custom") @db.VarChar(50)
+  url         String? @db.VarChar(500)
+  target      String  @default("_self") @db.VarChar(20)
+  referenceId Int?    @map("reference_id")
+
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  menu     Menu       @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  parent   MenuItem?  @relation("MenuItemHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children MenuItem[] @relation("MenuItemHierarchy")
+
+  translations MenuItemTranslation[]
+
+  @@index([menuId], map: "menu_items_menu_id_index")
+  @@index([parentId], map: "menu_items_parent_id_index")
+  @@map("menu_items")
+}
+
+model MenuItemTranslation {
+  id         Int    @id @default(autoincrement())
+  menuItemId Int    @map("menu_item_id")
+  languageId Int    @map("language_id")
+  label      String @db.VarChar(255)
+  slug       String @db.VarChar(255)
+
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([menuItemId, languageId], map: "menu_item_translations_item_language_unique")
+  @@index([languageId], map: "menu_item_translations_language_id_index")
+  @@map("menu_item_translations")
+}
+
+// ==========================================
+// MEDIA
+// ==========================================
+
+model MediaFolder {
+  id       Int    @id @default(autoincrement())
+  name     String
+  slug     String
+  scope    String @default("site")
+  order    Int    @default(0)
+  parentId Int?   @map("parent_id")
+
+  parent     MediaFolder?  @relation("SubFolders", fields: [parentId], references: [id], onDelete: Restrict)
+  subFolders MediaFolder[] @relation("SubFolders")
+  media      Media[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([slug, parentId])
+  @@index([parentId])
+  @@index([scope])
+  @@map("media_folders")
+}
+
+model Media {
+  id Int @id @default(autoincrement())
+
+  filename     String
+  originalName String
+  path         String
+  url          String
+
+  mimeType String
+  size     Int
+
+  width  Int?
+  height Int?
+
+  legacyFolder String       @default("general") @map("legacy_folder")
+  folderId     Int?         @map("folder_id")
+  folder       MediaFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  scope String   @default("site")
+  tags  String[]
+
+  alt     String?
+  caption String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Back-relations
+  pages Page[] @relation("PageFeatureImage")
+  posts Post[] @relation("PostCoverImage")
+  users User[] @relation("UserAvatar")
+
+  @@index([legacyFolder])
+  @@index([folderId])
+  @@index([scope])
+  @@index([mimeType])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@map("media")
+}
+
+// ==========================================
+// SETTINGS
+// ==========================================
+model Setting {
+  id          Int     @id @default(autoincrement())
+  key         String  @unique
+  label       String
+  description String?
+
+  isPublic Boolean @default(false)
+  isActive Boolean @default(true)
+
+  settingGlobalContent    SettingGlobalContent?
+  settingLocalizedContent SettingLocalizedContent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model SettingGlobalContent {
+  id        Int  @id @default(autoincrement())
+  settingId Int  @unique
+  value     Json
+
+  setting Setting @relation(fields: [settingId], references: [id], onDelete: Cascade)
+
+  @@map("setting_global_contents")
+}
+
+model SettingLocalizedContent {
+  id         Int  @id @default(autoincrement())
+  settingId  Int
+  languageId Int
+  value      Json
+
+  setting  Setting  @relation(fields: [settingId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([settingId, languageId])
+  @@map("setting_localized_contents")
+}
+
+// ==========================================
+// BLOCK TYPE DEFINITIONS
+// ==========================================
+
+model BlockTypeDefinition {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique @db.VarChar(50)
+  label       String   @db.VarChar(255)
+  description String?  @db.Text
+  scope       String   @db.VarChar(20)
+  icon        String?  @db.VarChar(50)
+  schema      Json
+  defaultData Json?    @map("default_data")
+  isEnabled   Boolean  @default(true) @map("is_enabled")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  @@index([scope])
+  @@index([isEnabled])
+  @@index([key])
+  @@map("block_type_definitions")
+}
+
+// ==========================================
+// ACTIVITY LOG
+// ==========================================
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?     @map("user_id")
+  action      String   @db.VarChar(100)
+  entityType  String   @map("entity_type") @db.VarChar(50)
+  entityId    String   @map("entity_id") @db.VarChar(50)
+  description String?  @db.Text
+  ipAddress   String?  @map("ip_address") @db.VarChar(45)
+  userAgent   String?  @map("user_agent") @db.Text
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  @@index([userId])
+  @@index([entityType])
+  @@index([action])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+// ==========================================
+// CACHE
+// ==========================================
+
+model Cache {
+  key        String @id @db.VarChar(255)
+  value      String @db.Text
+  expiration Int
+
+  @@map("cache")
+}
+
+// ==========================================
+// NOTIFICATIONS
+// ==========================================
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  type      String   @db.VarChar(100)
+  title     String   @db.VarChar(255)
+  message   String   @db.VarChar(500)
+  link      String?  @db.VarChar(500)
+  actorId   Int?     @map("actor_id")
+  actor     User?    @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  @@index([createdAt])
+  @@index([type])
+  @@map("notifications")
+}
+
+model UserNotificationState {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @unique @map("user_id")
+  lastReadAt DateTime @default(now()) @map("last_read_at") @db.Timestamp(0)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_notification_states")
+}
+
+// ==========================================
+// CHAT
+// ==========================================
+
+enum ChatSessionStatus {
+  open
+  closed
+}
+
+model ChatSession {
+  id                      String            @id @default(cuid())
+  visitorName             String?           @map("visitor_name") @db.VarChar(255)
+  visitorEmail            String?           @map("visitor_email") @db.VarChar(255)
+  visitorPhone            String?           @map("visitor_phone") @db.VarChar(50)
+  visitorLanguage         String?           @map("visitor_language") @db.VarChar(10)
+  operatorId              Int?              @map("operator_id")
+  knownUserId             Int?              @map("known_user_id")
+  status                  ChatSessionStatus @default(open)
+  startedAt               DateTime          @default(now()) @map("started_at") @db.Timestamp(0)
+  closedAt                DateTime?         @map("closed_at") @db.Timestamp(0)
+  // Stamped once, the first time operatorId transitions from null to
+  // non-null (auto-assign or manual) — see ChatService.assignOperator.
+  // Waiting time = assignedAt - startedAt. Not updated on later
+  // reassignment, so it stays a "time to first pickup" metric.
+  assignedAt              DateTime?         @map("assigned_at") @db.Timestamp(0)
+  // visitor context
+  visitorBrowser          String?           @map("visitor_browser") @db.VarChar(500)
+  visitorIp               String?           @map("visitor_ip") @db.VarChar(100)
+  visitorPage             String?           @map("visitor_page") @db.VarChar(1000)
+  // closure
+  resolutionTag           String?           @map("resolution_tag") @db.VarChar(50)
+  closureSummary          String?           @map("closure_summary") @db.Text
+  closedByOperatorId      Int?              @map("closed_by_operator_id")
+  // reporting taxonomy — settable any time during the session, not just at
+  // close; both nullable (existing rows have neither)
+  regionId                String?           @map("region_id")
+  programId               String?           @map("program_id")
+  // post-chat survey
+  visitorRating           Int?              @map("visitor_rating")
+  visitorRatingComment    String?           @map("visitor_rating_comment") @db.VarChar(1000)
+  // contact request — submitted via the queue/close "leave contact info"
+  // popup, distinct from the intro-form visitor* fields above (the visitor
+  // may correct/override those here). resolutionTag stays one of the 3 real
+  // close reasons even for these sessions (see ChatGateway.
+  // handleVisitorLeaveContactInfo) — contactInfoLeft is the dedicated flag
+  // for "did the visitor submit this form", independent of how the session
+  // is classified for close-reason reporting. contactRequestEmailSent is a
+  // separate true/false/null: null = never attempted, true/false = the
+  // notification email's actual send outcome.
+  contactInfoLeft         Boolean           @default(false) @map("contact_info_left")
+  contactRequestName      String?           @map("contact_request_name") @db.VarChar(255)
+  contactRequestPhone     String?           @map("contact_request_phone") @db.VarChar(50)
+  contactRequestEmail     String?           @map("contact_request_email") @db.VarChar(255)
+  contactRequestMessage   String?           @map("contact_request_message") @db.Text
+  contactRequestAt        DateTime?         @map("contact_request_at") @db.Timestamp(0)
+  contactRequestEmailSent Boolean?          @map("contact_request_email_sent")
+  deletedAt               DateTime?         @map("deleted_at") @db.Timestamp(0)
+  // Last time the visitor's widget had this session's messages in view —
+  // lets the operator UI show a "Seen" marker on its own messages. One
+  // timestamp per session (not per-message) is enough for a support-chat
+  // "seen up to here" indicator; there's no operator-side equivalent, the
+  // visitor widget never shows whether the operator has read a reply.
+  visitorLastReadAt       DateTime?         @map("visitor_last_read_at") @db.Timestamp(0)
+
+  operator         User?         @relation("ChatOperator", fields: [operatorId], references: [id], onDelete: SetNull)
+  knownUser        User?         @relation("ChatKnownUser", fields: [knownUserId], references: [id], onDelete: SetNull)
+  closedByOperator User?         @relation("ChatClosedBy", fields: [closedByOperatorId], references: [id], onDelete: SetNull)
+  program          Program?      @relation(fields: [programId], references: [id], onDelete: SetNull)
+  region           Region?       @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  messages         ChatMessage[]
+
+  @@index([operatorId])
+  @@index([knownUserId])
+  @@index([status])
+  @@index([startedAt])
+  @@index([closedByOperatorId])
+  @@index([regionId])
+  @@index([programId])
+  @@index([deletedAt])
+  @@index([contactInfoLeft])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  sessionId  String   @map("session_id")
+  authorId   Int?     @map("author_id")
+  role       String   @db.VarChar(20)
+  body       String   @db.Text
+  // True only for messages whose body is a small, sanitized HTML fragment
+  // (currently just canned responses sent as-is, preserving the formatting
+  // they were authored with). Everything an operator or visitor types stays
+  // plain text with this false, and renderers must keep escaping those —
+  // never infer HTML-ness from the body's content.
+  isHtml     Boolean  @default(false) @map("is_html")
+  isInternal Boolean  @default(false) @map("is_internal")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  author  User?       @relation("ChatMessageAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+model CannedResponse {
+  id          String   @id @default(cuid())
+  title       String   @db.VarChar(255)
+  body        String   @db.Text
+  categoryId  String?  @map("category_id")
+  createdById Int      @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Non-null only for the handful of system-triggered rows (greeting,
+  // queue_wait, inactivity_warning, inactivity_close) that the gateway sends
+  // automatically instead of an operator picking from the composer. NULL for
+  // every regular operator-facing template — Postgres allows unlimited NULLs
+  // through a unique index, so this still guarantees at most one row per
+  // trigger. Gated on chat.manage (supervisor), not chat.close, since editing
+  // these changes live system behavior for every visitor.
+  trigger        String? @db.VarChar(30)
+  // Only meaningful for inactivity_warning/inactivity_close — how long after
+  // the relevant activity before this message fires. Null for triggers that
+  // fire immediately (greeting, queue_wait).
+  delaySeconds   Int?    @map("delay_seconds")
+  // Only meaningful when trigger is non-null — lets a supervisor turn an
+  // automatic message off (e.g. disable auto-close) without losing its
+  // customized text/delay. Ignored for regular (trigger=null) templates.
+  isEnabled      Boolean @default(true) @map("is_enabled")
+  // Only meaningful for close_confirm/session_ended — a second translatable
+  // field the other triggers don't need (they're single-line chat messages;
+  // these are a popup/screen with a mandatory header + optional body). Null
+  // for every other trigger and for regular templates.
+  header         String? @db.VarChar(255)
+  // Only meaningful for close_confirm/session_ended — the label of the
+  // single action button each renders (Cancel / Start New Chat). Optional;
+  // falls back to the widget's static dictionary text when unset.
+  buttonText     String? @db.VarChar(100)
+  // Only meaningful for intro_form — a free-form {fieldKey: text} map
+  // (widgetTitle/nameLabel/phoneLabel/emailLabel/nameRequired/
+  // phoneRequired/startButton) since that trigger has more editable strings
+  // than the single header+body+buttonText shape fits. Null for every other
+  // trigger.
+  fields         Json?
+  // Only meaningful for intro_form — which of the visitor-facing inputs
+  // (subset of "name"/"phone"/"email") are required before submit. Not
+  // translatable (requiredness doesn't vary by language), so unlike
+  // header/buttonText/fields there's no per-language override in
+  // CannedResponseTranslation. Null falls back to the hardcoded default
+  // (name + phone required, email optional).
+  requiredFields Json?
+
+  deletedAt DateTime? @map("deleted_at")
+
+  createdBy    User                        @relation("CannedResponseAuthor", fields: [createdById], references: [id], onDelete: Cascade)
+  translations CannedResponseTranslation[]
+  // Cascade: hard-deleting a category permanently deletes every response
+  // under it too (see CannedResponseCategory below) — soft delete/restore of
+  // a category is handled manually in ChatService, cascading deletedAt onto
+  // active responses and unconditionally restoring all of them on restore.
+  category     CannedResponseCategory?     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([trigger])
+  @@index([createdById])
+  @@index([categoryId])
+  @@map("canned_responses")
+}
+
+// Per-language override of an automatic message's body. Only used for the 4
+// system-triggered CannedResponse rows (trigger != null) — regular
+// operator-facing templates are single-language. CannedResponse.body remains
+// the fallback (used when the visitor's language has no row here, e.g. a
+// language newly activated before a supervisor has translated it).
+model CannedResponseTranslation {
+  id               Int      @id @default(autoincrement())
+  cannedResponseId String   @map("canned_response_id")
+  languageId       Int      @map("language_id")
+  body             String   @db.Text
+  // Translation of CannedResponse.header — only populated for
+  // close_confirm/session_ended.
+  header           String?  @db.VarChar(255)
+  // Translation of CannedResponse.buttonText — only populated for
+  // close_confirm/session_ended.
+  buttonText       String?  @db.VarChar(100)
+  // Translation of CannedResponse.fields — only populated for intro_form.
+  fields           Json?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  cannedResponse CannedResponse @relation(fields: [cannedResponseId], references: [id], onDelete: Cascade)
+  language       Language       @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([cannedResponseId, languageId])
+  @@map("canned_response_translations")
+}
+
+// Managed category for regular (trigger=null) canned responses — replaces
+// the old free-text CannedResponse.category string. Same soft-delete +
+// trash/restore/hard-delete shape as Program/Region, but with a manual
+// cascade: trashing a category also trashes its currently-active responses,
+// restoring it unconditionally restores every response under it (even ones
+// that had been trashed individually before), and hard-deleting it cascades
+// at the DB level via CannedResponse.category's onDelete: Cascade above.
+model CannedResponseCategory {
+  id        String    @id @default(cuid())
+  name      String    @unique @db.VarChar(100)
+  sortOrder Int       @default(0) @map("sort_order")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  responses CannedResponse[]
+
+  @@index([deletedAt])
+  @@map("canned_response_categories")
+}
+
+// Singleton row (id fixed to 1) holding small global chat-behavior knobs a
+// supervisor tunes from the CMS's Automatic Messages panel — currently just
+// the per-operator active-chat cap the gateway enforces on auto-assignment
+// (pickAvailableOperator/drainQueue). Cached in-memory by ChatGateway and
+// reloaded via invalidateChatConfigCache after a save, same pattern as the
+// automatic-message cache.
+model ChatConfig {
+  id                      Int    @id @default(1)
+  maxActiveChats          Int    @default(3) @map("max_active_chats")
+  // Team-wide notification sound settings — supervisor-set (chat.manage_config),
+  // applied for every operator rather than a per-browser preference. soundId is
+  // one of "chime" | "bell" | "alert" | "none" (validated in UpdateChatConfigDto,
+  // not a DB enum since it's a small closed set owned by the frontend player).
+  notificationSound       String @default("chime") @map("notification_sound")
+  notificationVolume      Float  @default(0.5) @map("notification_volume")
+  // Multiplier applied to each sound's base duration/envelope (0.5x-2x) —
+  // lets a supervisor make the alert noticeably longer without adding more
+  // sound presets.
+  notificationDuration    Float  @default(1) @map("notification_duration")
+  // Multiplier applied to every preset's literal frequencies (0.5x-2x).
+  notificationPitch       Float  @default(1) @map("notification_pitch")
+  // How many times the sound plays back-to-back (1-5) for a single new
+  // message — repeats are spaced using each preset's own rough length, see
+  // BASE_DURATION_MS in notificationSounds.ts.
+  notificationRepeatCount Int    @default(1) @map("notification_repeat_count")
+
+  // Same 5 knobs again, for a second, distinct trigger: a brand-new session
+  // arriving (vs. notification* above, which is "a message landed in a chat
+  // I'm not currently looking at"). Operator-only — visitors initiate chats
+  // themselves, so "a new chat arrived" isn't an event on their side.
+  newChatNotificationSound       String @default("chime") @map("new_chat_notification_sound")
+  newChatNotificationVolume      Float  @default(0.5) @map("new_chat_notification_volume")
+  newChatNotificationDuration    Float  @default(1) @map("new_chat_notification_duration")
+  newChatNotificationPitch       Float  @default(1) @map("new_chat_notification_pitch")
+  newChatNotificationRepeatCount Int    @default(1) @map("new_chat_notification_repeat_count")
+
+  // Same 5 knobs, mirrored for the visitor-facing widget (public website)
+  // instead of the operator CMS — deliberately separate rows since the two
+  // audiences shouldn't be forced to share one sound. Read via a @Public()
+  // endpoint (no chat.view session) since visitors aren't authenticated.
+  visitorNotificationSound       String @default("chime") @map("visitor_notification_sound")
+  visitorNotificationVolume      Float  @default(0.5) @map("visitor_notification_volume")
+  visitorNotificationDuration    Float  @default(1) @map("visitor_notification_duration")
+  visitorNotificationPitch       Float  @default(1) @map("visitor_notification_pitch")
+  visitorNotificationRepeatCount Int    @default(1) @map("visitor_notification_repeat_count")
+
+  // Same 5 knobs again, for the visitor's own outgoing message — visitor-only.
+  // Defaults to a messenger-style preset rather than "chime" since this is
+  // specifically the "message sent" feel real chat apps use.
+  visitorSentNotificationSound       String @default("whatsapp") @map("visitor_sent_notification_sound")
+  visitorSentNotificationVolume      Float  @default(0.5) @map("visitor_sent_notification_volume")
+  visitorSentNotificationDuration    Float  @default(1) @map("visitor_sent_notification_duration")
+  visitorSentNotificationPitch       Float  @default(1) @map("visitor_sent_notification_pitch")
+  visitorSentNotificationRepeatCount Int    @default(1) @map("visitor_sent_notification_repeat_count")
+
+  // Same 5 knobs, mirrored for the operator's own outgoing message — the
+  // counterpart to notification* (operator "receiving" trigger) so operators
+  // get the same received/sent split visitors do, on top of the separate
+  // newChatNotification* trigger above. Same messenger-style default as the
+  // visitor's sent sound.
+  operatorSentNotificationSound       String @default("whatsapp") @map("operator_sent_notification_sound")
+  operatorSentNotificationVolume      Float  @default(0.5) @map("operator_sent_notification_volume")
+  operatorSentNotificationDuration    Float  @default(1) @map("operator_sent_notification_duration")
+  operatorSentNotificationPitch       Float  @default(1) @map("operator_sent_notification_pitch")
+  operatorSentNotificationRepeatCount Int    @default(1) @map("operator_sent_notification_repeat_count")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("chat_config")
+}
+
+// Reporting taxonomy for chat sessions — simple, admin-managed, non-translatable.
+// Internal categorization picked by the operator, never shown to visitors,
+// so (unlike Programs' comment above once implied) there's no per-language
+// override — always entered/displayed in whatever language staff use.
+model Program {
+  id        String    @id @default(cuid())
+  name      String    @db.VarChar(255)
+  isActive  Boolean   @default(true) @map("is_active")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  sessions ChatSession[]
+
+  @@index([deletedAt])
+  @@map("chat_programs")
+}
+
+// Chat reporting taxonomy — same shape/CRUD pattern as Program, replacing
+// the old free-text ChatSession.region column with a managed pick-list.
+// Also internal-only / non-translatable, same reasoning as Program above.
+model Region {
+  id        String    @id @default(cuid())
+  name      String    @db.VarChar(255)
+  isActive  Boolean   @default(true) @map("is_active")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  sessions ChatSession[]
+
+  @@index([deletedAt])
+  @@map("chat_regions")
+}
+
+// Operator-to-operator direct messages
+model OperatorThread {
+  id             String   @id @default(cuid())
+  participant1Id Int      @map("participant1_id")
+  participant2Id Int      @map("participant2_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  participant1 User              @relation("DmParticipant1", fields: [participant1Id], references: [id], onDelete: Cascade)
+  participant2 User              @relation("DmParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
+  messages     OperatorMessage[]
+
+  @@unique([participant1Id, participant2Id])
+  @@index([participant1Id])
+  @@index([participant2Id])
+  @@map("operator_threads")
+}
+
+model OperatorMessage {
+  id        String   @id @default(cuid())
+  threadId  String   @map("thread_id")
+  authorId  Int      @map("author_id")
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  thread OperatorThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author User           @relation("DmAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@index([createdAt])
+  @@map("operator_messages")
+}

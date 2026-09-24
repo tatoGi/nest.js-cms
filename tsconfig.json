@@ -1,0 +1,49 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2021",
+    "sourceMap": true,
+    "outDir": "./dist",
+    // Already what TypeScript infers from `include`, stated explicitly because
+    // TS 6 requires it rather than inferring. Configs that extend this one and
+    // compile files outside src/ must override it — see prisma/seeds.
+    "rootDir": "./src",
+    "incremental": true,
+    // Must live inside outDir. nest-cli.json sets `deleteOutDir: true`, so
+    // dist/ is wiped before every build; with the build-info file at the repo
+    // root it survived that wipe and told tsc everything was already emitted,
+    // producing an empty dist/ and "Cannot find module dist/main" — including
+    // in `start:dev` watch mode, which reported "Found 0 errors" first.
+    // Keeping it in dist/ means the cache is discarded exactly when the
+    // output it describes is.
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "skipLibCheck": true,
+    "strict": true,
+    // Off because NestJS DTO/entity properties are populated by decorators
+    // (class-validator, Prisma), which the compiler can't see — enabling it
+    // reports 452 declarations that would each need a `!`, suppressing the
+    // check rather than strengthening it.
+    "strictPropertyInitialization": false,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "allowUnreachableCode": false,
+    // Resolved relative to this file rather than `baseUrl`, which TS 6
+    // deprecates and TS 7 removes. Nest rewrites these aliases to relative
+    // requires at build time, so nothing resolves through them at runtime.
+    "paths": {
+      "@/*": ["./src/*"],
+      "@config/*": ["./src/old/config/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test"]
+}

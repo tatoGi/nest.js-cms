@@ -1,0 +1,13 @@
+{
+  // Use the TypeScript pinned in package.json (5.9.3) rather than the version
+  // bundled with VS Code. Without this, editors shipping TypeScript 6+ report
+  // errors the project's own compiler never emits — `baseUrl` deprecation
+  // warnings, and "no call signatures" on the `import * as x` form used for
+  // CommonJS packages (bcrypt, sharp, exceljs, cookie-parser, sanitize-html),
+  // because TS 6 defaults `esModuleInterop` to true while this project leaves
+  // it off. `npm run typecheck` is the source of truth; this keeps the editor
+  // agreeing with it.
+  // Deprecated: "typescript.tsdk" is deprecated. Use "js/ts.tsdk.path" instead.
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true
+}

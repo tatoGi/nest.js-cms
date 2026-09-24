@@ -1,0 +1,35 @@
+[Unit]
+Description=Enterprise Georgia CMS (Next.js — port 3001)
+After=network.target gedc-backend.service
+
+[Service]
+Type=simple
+User=gedc
+Group=gedc
+WorkingDirectory=/opt/gedc/cms
+
+# next start — reads .next/ built by npm run build
+ExecStart=/usr/bin/npm run start
+ExecReload=/bin/kill -HUP $MAINPID
+
+Restart=always
+RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+# Next.js stdout/stderr → /var/log/gedc/cms.log
+StandardOutput=append:/var/log/gedc/cms.log
+StandardError=append:/var/log/gedc/cms.log
+SyslogIdentifier=gedc-cms
+
+# Load production env (copy from docs/deploy/.env.cms.example)
+EnvironmentFile=/opt/gedc/cms/.env
+Environment=NODE_ENV=production
+Environment=PORT=3001
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

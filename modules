@@ -1,0 +1,170 @@
+backend/
+├── src/
+│   ├── modules/
+│   │   ├── auth/
+│   │   │   ├── auth.module.ts
+│   │   │   ├── auth.controller.ts
+│   │   │   ├── auth.service.ts
+│   │   │   ├── dto/
+│   │   │   │   ├── login.dto.ts
+│   │   │   │   ├── register.dto.ts
+│   │   │   │   └── change-password.dto.ts
+│   │   │   ├── guards/
+│   │   │   │   ├── jwt-auth.guard.ts
+│   │   │   │   └── permissions.guard.ts
+│   │   │   ├── strategies/
+│   │   │   │   └── jwt.strategy.ts
+│   │   │   └── decorators/
+│   │   │       ├── current-user.decorator.ts
+│   │   │       └── permissions.decorator.ts
+│   │   │
+│   │   ├── languages/
+│   │   │   ├── languages.module.ts
+│   │   │   ├── languages.controller.ts
+│   │   │   ├── languages.service.ts
+│   │   │   ├── dto/
+│   │   │   │   ├── create-language.dto.ts
+│   │   │   │   └── update-language.dto.ts
+│   │   │   └── entities/
+│   │   │       └── language.entity.ts
+│   │   │
+│   │   ├── pages/
+│   │   │   ├── pages.module.ts
+│   │   │   ├── pages.controller.ts
+│   │   │   ├── pages.service.ts
+│   │   │   ├── dto/
+│   │   │   │   ├── create-page.dto.ts
+│   │   │   │   ├── update-page.dto.ts
+│   │   │   │   ├── create-page-translation.dto.ts
+│   │   │   │   ├── update-page-translation.dto.ts
+│   │   │   │   ├── create-page-block.dto.ts
+│   │   │   │   └── update-page-block.dto.ts
+│   │   │   └── entities/
+│   │   │       ├── page.entity.ts
+│   │   │       ├── page-translation.entity.ts
+│   │   │       └── page-content-block.entity.ts
+│   │   │
+│   │   ├── programs/
+│   │   │   ├── programs.module.ts
+│   │   │   ├── programs.controller.ts
+│   │   │   ├── programs.service.ts
+│   │   │   ├── dto/
+│   │   │   │   ├── create-program.dto.ts
+│   │   │   │   ├── update-program.dto.ts
+│   │   │   │   ├── create-program-translation.dto.ts
+│   │   │   │   ├── update-program-translation.dto.ts
+│   │   │   │   ├── create-program-block.dto.ts
+│   │   │   │   ├── update-program-block.dto.ts
+│   │   │   │   ├── reorder-programs.dto.ts
+│   │   │   │   └── move-program.dto.ts
+│   │   │   └── entities/
+│   │   │       ├── program.entity.ts
+│   │   │       ├── program-translation.entity.ts
+│   │   │       └── program-content-block.entity.ts
+│   │   │
+│   │   ├── program-templates/
+│   │   │   ├── program-templates.module.ts
+│   │   │   ├── program-templates.controller.ts
+│   │   │   ├── program-templates.service.ts
+│   │   │   ├── dto/
+│   │   │   │   ├── create-template.dto.ts
+│   │   │   │   └── update-template.dto.ts
+│   │   │   └── entities/
+│   │   │       └── program-template.entity.ts
+│   │   │
+│   │   ├── posts/
+│   │   │   ├── posts.module.ts
+│   │   │   ├── posts.controller.ts
+│   │   │   ├── posts.service.ts
+│   │   │   ├── dto/
+│   │   │   │   ├── create-post.dto.ts
+│   │   │   │   ├── update-post.dto.ts
+│   │   │   │   ├── create-post-translation.dto.ts
+│   │   │   │   └── update-post-translation.dto.ts
+│   │   │   └── entities/
+│   │   │       ├── post.entity.ts
+│   │   │       └── post-translation.entity.ts
+│   │   │
+│   │   ├── post-categories/
+│   │   │   ├── post-categories.module.ts
+│   │   │   ├── post-categories.controller.ts
+│   │   │   ├── post-categories.service.ts
+│   │   │   ├── dto/
+│   │   │   │   ├── create-post-category.dto.ts
+│   │   │   │   └── update-post-category.dto.ts
+│   │   │   └── entities/
+│   │   │       └── post-category.entity.ts
+│   │   │
+│   │   ├── media/
+│   │   │   ├── media.module.ts
+│   │   │   ├── media.controller.ts
+│   │   │   ├── media.service.ts
+│   │   │   ├── dto/
+│   │   │   │   ├── upload-media.dto.ts
+│   │   │   │   └── update-media.dto.ts
+│   │   │   └── entities/
+│   │   │       └── media.entity.ts
+│   │   │
+│   │   ├── settings/
+│   │   │   ├── settings.module.ts
+│   │   │   ├── settings.controller.ts
+│   │   │   ├── settings.service.ts
+│   │   │   ├── dto/
+│   │   │   │   ├── update-general-settings.dto.ts
+│   │   │   │   └── update-global-block.dto.ts
+│   │   │   └── entities/
+│   │   │       ├── general-setting.entity.ts
+│   │   │       └── global-block.entity.ts
+│   │   │
+│   │   ├── admin-users/
+│   │   │   ├── admin-users.module.ts
+│   │   │   ├── admin-users.controller.ts
+│   │   │   ├── admin-users.service.ts
+│   │   │   ├── dto/
+│   │   │   │   ├── create-admin-user.dto.ts
+│   │   │   │   └── update-admin-user.dto.ts
+│   │   │   └── entities/
+│   │   │       └── admin-user.entity.ts
+│   │   │
+│   │   ├── admin-roles/
+│   │   │   ├── admin-roles.module.ts
+│   │   │   ├── admin-roles.controller.ts
+│   │   │   ├── admin-roles.service.ts
+│   │   │   ├── dto/
+│   │   │   │   ├── create-admin-role.dto.ts
+│   │   │   │   ├── update-admin-role.dto.ts
+│   │   │   │   └── assign-permissions.dto.ts
+│   │   │   └── entities/
+│   │   │       └── admin-role.entity.ts
+│   │   │
+│   │   └── block-types/
+│   │       ├── block-types.module.ts
+│   │       ├── block-types.controller.ts
+│   │       ├── block-types.service.ts
+│   │       ├── dto/
+│   │       │   ├── create-block-type.dto.ts
+│   │       │   └── update-block-type.dto.ts
+│   │       └── entities/
+│   │           └── block-type-definition.entity.ts
+│   │
+│   ├── common/
+│   │   ├── decorators/
+│   │   ├── filters/
+│   │   ├── interceptors/
+│   │   ├── pipes/
+│   │   └── dto/
+│   │       ├── pagination.dto.ts
+│   │       └── base-query.dto.ts
+│   │
+│   ├── prisma/
+│   │   ├── prisma.module.ts
+│   │   └── prisma.service.ts
+│   │
+│   ├── app.module.ts
+│   └── main.ts
+│
+├── prisma/
+│   ├── schema.prisma
+│   └── migrations/
+│
+└── package.json

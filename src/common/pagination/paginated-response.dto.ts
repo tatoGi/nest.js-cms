@@ -1,0 +1,28 @@
+// src/common/pagination/paginated-response.dto.ts
+
+import { ApiProperty } from '@nestjs/swagger';
+
+export class PaginatedResponseDto<T> {
+  @ApiProperty()
+  data: T[];
+
+  @ApiProperty()
+  total: number;
+
+  @ApiProperty()
+  page: number;
+
+  @ApiProperty()
+  limit: number;
+
+  @ApiProperty()
+  totalPages: number;
+
+  constructor(data: T[], total: number, page: number, limit: number, totalPages?: number) {
+    this.data = data;
+    this.total = total;
+    this.page = page;
+    this.limit = limit;
+    this.totalPages = totalPages ?? Math.ceil(total / limit);
+  }
+}

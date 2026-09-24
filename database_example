@@ -1,0 +1,201 @@
+-- ==========================================
+-- INITIAL DATA SEEDS
+-- ==========================================
+
+-- 1. Languages
+INSERT INTO languages (code, name, native_name, flag, direction, is_active, is_default, sort_order) 
+VALUES
+('ka', 'Georgian', 'ქართული', '🇬🇪', 'ltr', true, true, 1),
+('en', 'English', 'English', '🇬🇧', 'ltr', true, false, 2);
+
+-- 2. Admin Roles
+INSERT INTO admin_roles (name, slug, description) VALUES
+('Super Admin', 'super-admin', 'Full system access'),
+('Content Manager', 'content-manager', 'Manage content and media'),
+('Editor', 'editor', 'Edit and publish content');
+
+-- 3. Admin Permissions
+INSERT INTO admin_permissions (key, label, "group") VALUES
+-- Pages
+('pages.view', 'View Pages', 'pages'),
+('pages.create', 'Create Pages', 'pages'),
+('pages.edit', 'Edit Pages', 'pages'),
+('pages.delete', 'Delete Pages', 'pages'),
+('pages.publish', 'Publish Pages', 'pages'),
+
+-- Posts
+('posts.view', 'View Posts', 'posts'),
+('posts.create', 'Create Posts', 'posts'),
+('posts.edit', 'Edit Posts', 'posts'),
+('posts.delete', 'Delete Posts', 'posts'),
+('posts.publish', 'Publish Posts', 'posts'),
+
+-- Media
+('media.view', 'View Media', 'media'),
+('media.upload', 'Upload Media', 'media'),
+('media.delete', 'Delete Media', 'media'),
+
+-- Settings
+('settings.view', 'View Settings', 'settings'),
+('settings.edit', 'Edit Settings', 'settings'),
+
+-- Templates
+('templates.view', 'View Templates', 'templates'),
+('templates.create', 'Create Templates', 'templates'),
+('templates.edit', 'Edit Templates', 'templates'),
+('templates.delete', 'Delete Templates', 'templates');
+
+-- 4. Grant all permissions to Super Admin
+INSERT INTO admin_role_permissions (role_id, permission_id)
+SELECT 
+    (SELECT id FROM admin_roles WHERE slug = 'super-admin'),
+    id
+FROM admin_permissions;
+
+-- 5. Post Categories
+INSERT INTO post_categories (slug, color, icon, sort_order, is_active) VALUES
+('entrepreneurship', '#2563eb', '💼', 1, true),
+('export', '#16a34a', '📊', 2, true),
+('investment', '#dc2626', '💰', 3, true);
+
+-- Category Translations
+INSERT INTO post_category_translations (category_id, language_code, name, description) VALUES
+(1, 'ka', 'მეწარმეობა', 'მეწარმეობის განვითარების სიახლეები'),
+(1, 'en', 'Entrepreneurship', 'Entrepreneurship development news'),
+(2, 'ka', 'ექსპორტი', 'ექსპორტის მხარდაჭერის სიახლეები'),
+(2, 'en', 'Export', 'Export support news'),
+(3, 'ka', 'ინვესტიცია', 'ინვესტიციების სიახლეები'),
+(3, 'en', 'Investment', 'Investment news');
+
+-- 6. Block Type Definitions
+INSERT INTO block_type_definitions (key, label, description, scope, icon, schema, default_data, is_enabled, sort_order) 
+VALUES
+-- Common blocks
+('text', 'Text Block', 'Rich text content', 'page,program,post', '📝', 
+ '{"type":"object","properties":{"heading":{"type":"string"},"content":{"type":"string"}}}',
+ '{"heading":"","content":""}', true, 1),
+
+('image', 'Image Block', 'Single image with caption', 'page,program,post', '🖼️',
+ '{"type":"object","properties":{"url":{"type":"string"},"alt":{"type":"string"},"caption":{"type":"string"}}}',
+ '{"url":"","alt":"","caption":""}', true, 2),
+
+('video', 'Video Block', 'YouTube/Vimeo embed', 'page,program,post', '🎬',
+ '{"type":"object","properties":{"url":{"type":"string"},"caption":{"type":"string"}}}',
+ '{"url":"","caption":""}', true, 3),
+
+-- Program-specific blocks
+('requirements', 'Requirements Block', 'Checklist of requirements', 'program', '✅',
+ '{"type":"object","properties":{"heading":{"type":"string"},"items":{"type":"array"}}}',
+ '{"heading":"Requirements","items":[]}', true, 10),
+
+('documents_list', 'Documents List Block', 'Required documents list', 'program', '📄',
+ '{"type":"object","properties":{"heading":{"type":"string"},"documents":{"type":"array"}}}',
+ '{"heading":"Required Documents","documents":[]}', true, 11),
+
+('programs_listing', 'Programs Listing Block', 'Display child programs as cards', 'page,program', '📋',
+ '{"type":"object","properties":{"heading":{"type":"string"},"displayMode":{"type":"string"},"layout":{"type":"string"}}}',
+ '{"heading":"Our Programs","displayMode":"auto","layout":"grid","columns":3,"showImage":true,"showDescription":true}', 
+ true, 12),
+
+('accordion', 'FAQ/Accordion Block', 'Expandable Q&A sections', 'page,program', '❓',
+ '{"type":"object","properties":{"heading":{"type":"string"},"items":{"type":"array"}}}',
+ '{"heading":"FAQ","items":[]}', true, 13),
+
+-- Page-specific blocks
+('hero', 'Hero Block', 'Hero section with video/image', 'page', '🎯',
+ '{"type":"object","properties":{"heading":{"type":"string"},"subtitle":{"type":"string"},"backgroundType":{"type":"string"}}}',
+ '{"heading":"","subtitle":"","backgroundType":"image"}', true, 20),
+
+('stats', 'Stats Block', 'Achievement numbers', 'page', '📊',
+ '{"type":"object","properties":{"heading":{"type":"string"},"stats":{"type":"array"}}}',
+ '{"heading":"Achievements","stats":[]}', true, 21);
+
+-- 7. Program Templates
+INSERT INTO program_templates (key, name, description, is_default, is_active, structure, visibility) 
+VALUES
+('business_support', 'Business Support Program', 'For entrepreneurship and business programs', true, true,
+ '{"blocks":[{"type":"text","data":{"heading":"Program Description"}},{"type":"requirements","data":{"heading":"Requirements","items":["Georgian citizen or resident","Age 18+","Registered business"]}},{"type":"documents_list","data":{"heading":"Required Documents","documents":["ID copy","Business plan","Financial statement"]}},{"type":"accordion","data":{"heading":"FAQ","items":[{"question":"How to apply?","answer":""}]}}]}',
+ 'global'),
+
+('tourism_program', 'Tourism Program', 'For tourism development programs', true, true,
+ '{"blocks":[{"type":"text","data":{"heading":"Program Description"}},{"type":"requirements","data":{"heading":"Requirements","items":["Tourism license","Registered facility","Categorization"]}},{"type":"documents_list","data":{"heading":"Required Documents","documents":["License copy","Registration certificate","Business plan","Photos"]}}]}',
+ 'global'),
+
+('export_program', 'Export Support Program', 'For export assistance programs', true, true,
+ '{"blocks":[{"type":"text","data":{"heading":"Program Description"}},{"type":"requirements","data":{"heading":"Requirements","items":["Registered company","Export experience or potential","International standards compliance"]}}]}',
+ 'global');
+
+-- 8. General Settings
+INSERT INTO general_settings (key, value, "group", label, is_public) VALUES
+('site_name_ka', '"ბიზნეს საქართველო"', 'general', 'Site Name (Georgian)', true),
+('site_name_en', '"Business Georgia"', 'general', 'Site Name (English)', true),
+('contact_email', '"info@businessgeorgia.ge"', 'contact', 'Contact Email', true),
+('contact_phone', '"+995 32 2 XXX XXX"', 'contact', 'Contact Phone', true),
+('facebook_url', '"https://facebook.com/businessgeorgia"', 'social', 'Facebook URL', true),
+('achievement_investment', '200000000', 'achievements', 'Total Investment (GEL)', true),
+('achievement_beneficiaries', '2000', 'achievements', 'Beneficiaries Count', true),
+('achievement_participants', '34000', 'achievements', 'Participants Count', true);
+```
+
+---
+
+## ✅ **KEY IMPROVEMENTS IN THIS SCHEMA**
+
+### **1. Language Table ✨**
+```
+✅ Dynamic language management
+✅ Easy to add new languages (Russian, etc.)
+✅ Language metadata (flag, direction, name)
+✅ Enable/disable languages
+✅ RTL support ready
+```
+
+### **2. Program Templates ✨**
+```
+✅ Reusable templates for categories
+✅ Pre-configured block structures
+✅ Usage tracking
+✅ Visibility control (global/team/personal)
+```
+
+### **3. Programs Listing Block Support ✨**
+```
+✅ Display child programs as cards
+✅ Auto-fetch or manual selection
+✅ Flexible layout options
+✅ Complete configuration in JSON
+```
+
+### **4. Enhanced Tracking**
+```
+✅ viewCount on programs/posts
+✅ Activity logs for audit trail
+✅ Usage count on templates
+✅ Last login tracking
+```
+
+### **5. Better Indexing**
+```
+✅ All foreign keys indexed
+✅ Search fields indexed (slug, email, etc.)
+✅ Filter fields indexed (published, isActive, etc.)
+✅ Optimized for queries
+```
+
+### **6. Flexible & Future-Proof**
+```
+✅ JSON blocks (add any block type)
+✅ Version control (page/program versions)
+✅ Slug aliases (SEO redirects)
+✅ Metadata fields (alt, caption, etc.)
+```
+
+---
+
+## 🚀 **NEXT STEPS**
+```
+1. Save schema.prisma ✅
+2. Run: npx prisma migrate dev --name init
+3. Run: npx prisma generate
+4. Seed initial data (languages, roles, etc.)
+5. Start building API endpoints!

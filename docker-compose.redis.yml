@@ -1,0 +1,17 @@
+# Split out from docker-compose.yml so `npm run chat-redis:*` only ever
+# touches this one container, never postgres/pgadmin — see docs/chat.md.
+# No custom network needed: the app connects over the published host port
+# (6379), not container-to-container, so redis doesn't need to share
+# docker-compose.yml's cms_network.
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: cms_redis
+    restart: always
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

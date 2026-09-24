@@ -1,0 +1,37 @@
+name: Chat Redis
+
+# Runs the unit test suite — including the Redis-backed operator rotation
+# tests (operator-rotation.service.spec.ts, chat.gateway.spec.ts) — kept
+# separate from ci.yml's typecheck/lint/format/build so a chat/rotation
+# regression is reported distinctly from an unrelated pipeline failure.
+# ioredis-mock stands in for a real Redis instance, so this needs no
+# `services:` container.
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # See ci.yml — prisma.config.ts throws on a missing DATABASE_URL even
+  # though `prisma generate` never opens a connection.
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+jobs:
+  test_unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm test -- --ci --passWithNoTests --forceExit

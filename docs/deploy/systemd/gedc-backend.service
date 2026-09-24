@@ -1,0 +1,36 @@
+[Unit]
+Description=Enterprise Georgia Backend (NestJS — port 4000)
+Documentation=https://docs.nestjs.com
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=gedc
+Group=gedc
+WorkingDirectory=/opt/gedc/backend
+
+# NestJS compiled output: npm run build → dist/main.js
+ExecStart=/usr/bin/node dist/main
+ExecReload=/bin/kill -HUP $MAINPID
+
+Restart=always
+RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+# NestJS has its own structured logger; journal captures it.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gedc-backend
+
+# Load production env (copy from docs/deploy/.env.backend.example)
+EnvironmentFile=/opt/gedc/backend/.env
+Environment=NODE_ENV=production
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
